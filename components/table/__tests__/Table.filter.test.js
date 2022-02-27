@@ -866,6 +866,7 @@ describe('Table.filter', () => {
               dataIndex: 'name',
               key: 'name',
               filteredValue: name,
+              // eslint-disable-next-line react/no-unstable-nested-components
               filterDropdown: ({ setSelectedKeys, selectedKeys, confirm }) => (
                 <div>
                   <Input
@@ -1099,7 +1100,7 @@ describe('Table.filter', () => {
   it('should support getPopupContainer', () => {
     const getPopupContainer = jest.fn(node => node.parentNode);
 
-    const wrapper = mount(
+    mount(
       createTable({
         columns: [
           {
@@ -1110,13 +1111,14 @@ describe('Table.filter', () => {
         getPopupContainer,
       }),
     );
-    expect(wrapper.render()).toMatchSnapshot();
     expect(getPopupContainer).toHaveBeenCalled();
   });
 
   it('should support getPopupContainer from ConfigProvider', () => {
-    const wrapper = mount(
-      <ConfigProvider getPopupContainer={node => node.parentNode}>
+    const getPopupContainer = jest.fn(node => node.parentNode);
+
+    mount(
+      <ConfigProvider getPopupContainer={getPopupContainer}>
         {createTable({
           columns: [
             {
@@ -1127,7 +1129,7 @@ describe('Table.filter', () => {
         })}
       </ConfigProvider>,
     );
-    expect(wrapper.render()).toMatchSnapshot();
+    expect(getPopupContainer).toHaveBeenCalled();
   });
 
   it('pass visible prop to filterDropdown', () => {
@@ -1266,7 +1268,7 @@ describe('Table.filter', () => {
         cols: [],
       };
 
-      componentDidMount = () => {
+      componentDidMount() {
         this.setState({
           cols: [
             {
@@ -1276,7 +1278,7 @@ describe('Table.filter', () => {
             },
           ],
         });
-      };
+      }
 
       render() {
         const { cols } = this.state;
@@ -1700,38 +1702,36 @@ describe('Table.filter', () => {
           },
         ];
         return (
-          <>
-            <Table
-              columns={columns}
-              dataSource={[
-                {
-                  key: '1',
-                  name: 'John Brown',
-                  age: 32,
-                  address: 'New York No. 1 Lake Park',
-                },
-                {
-                  key: '2',
-                  name: 'Jim Green',
-                  age: 42,
-                  address: 'London No. 1 Lake Park',
-                },
-                {
-                  key: '3',
-                  name: 'Joe Black',
-                  age: 66,
-                  address: 'Sidney No. 1 Lake Park',
-                },
-                {
-                  key: '4',
-                  name: 'Jim Red',
-                  age: 32,
-                  address: 'London No. 2 Lake Park',
-                },
-              ]}
-              onChange={this.handleChange}
-            />
-          </>
+          <Table
+            columns={columns}
+            dataSource={[
+              {
+                key: '1',
+                name: 'John Brown',
+                age: 32,
+                address: 'New York No. 1 Lake Park',
+              },
+              {
+                key: '2',
+                name: 'Jim Green',
+                age: 42,
+                address: 'London No. 1 Lake Park',
+              },
+              {
+                key: '3',
+                name: 'Joe Black',
+                age: 66,
+                address: 'Sidney No. 1 Lake Park',
+              },
+              {
+                key: '4',
+                name: 'Jim Red',
+                age: 32,
+                address: 'London No. 2 Lake Park',
+              },
+            ]}
+            onChange={this.handleChange}
+          />
         );
       }
     }

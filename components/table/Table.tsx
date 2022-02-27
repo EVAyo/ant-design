@@ -29,6 +29,7 @@ import {
 } from './interface';
 import useSelection, {
   SELECTION_ALL,
+  SELECTION_COLUMN,
   SELECTION_INVERT,
   SELECTION_NONE,
 } from './hooks/useSelection';
@@ -138,15 +139,25 @@ function InternalTable<RecordType extends object = any>(
     '`index` parameter of `rowKey` function is deprecated. There is no guarantee that it will work as expected.',
   );
 
-  const screens = useBreakpoint();
+  const baseColumns = React.useMemo(
+    () => columns || convertChildrenToColumns(children),
+    [columns, children],
+  );
+  const needResponsive = React.useMemo(
+    () => baseColumns.some((col: ColumnType<RecordType>) => col.responsive),
+    [baseColumns],
+  );
+
+  const screens = useBreakpoint(needResponsive);
+
   const mergedColumns = React.useMemo(() => {
     const matched = new Set(Object.keys(screens).filter((m: Breakpoint) => screens[m]));
 
-    return (columns || convertChildrenToColumns(children)).filter(
+    return baseColumns.filter(
       (c: ColumnType<RecordType>) =>
         !c.responsive || c.responsive.some((r: Breakpoint) => matched.has(r)),
     );
-  }, [children, columns, screens]);
+  }, [baseColumns, screens]);
 
   const tableProps = omit(props, ['className', 'style', 'columns']) as TableProps<RecordType>;
 
@@ -375,7 +386,6 @@ function InternalTable<RecordType extends object = any>(
     expandType,
     childrenColumnName,
     locale: tableLocale,
-    expandIconColumnIndex: mergedExpandable.expandIconColumnIndex,
     getPopupContainer,
   });
 
@@ -524,6 +534,8 @@ type InternalTableType = typeof ForwardTable;
 
 interface TableInterface extends InternalTableType {
   defaultProps?: Partial<TableProps<any>>;
+  SELECTION_COLUMN: typeof SELECTION_COLUMN;
+  EXPAND_COLUMN: typeof RcTable.EXPAND_COLUMN;
   SELECTION_ALL: 'SELECT_ALL';
   SELECTION_INVERT: 'SELECT_INVERT';
   SELECTION_NONE: 'SELECT_NONE';
@@ -538,6 +550,8 @@ Table.defaultProps = {
   rowKey: 'key',
 };
 
+Table.SELECTION_COLUMN = SELECTION_COLUMN;
+Table.EXPAND_COLUMN = RcTable.EXPAND_COLUMN;
 Table.SELECTION_ALL = SELECTION_ALL;
 Table.SELECTION_INVERT = SELECTION_INVERT;
 Table.SELECTION_NONE = SELECTION_NONE;

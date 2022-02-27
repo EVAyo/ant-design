@@ -1,11 +1,17 @@
 import * as React from 'react';
 import classNames from 'classnames';
 import RcCascader from 'rc-cascader';
-import type { CascaderProps as RcCascaderProps } from 'rc-cascader';
-import type { ShowSearchType, FieldNames, DataNode } from 'rc-cascader/lib/interface';
+import type {
+  SingleCascaderProps as RcSingleCascaderProps,
+  MultipleCascaderProps as RcMultipleCascaderProps,
+  ShowSearchType,
+  FieldNames,
+  BaseOptionType,
+  DefaultOptionType,
+} from 'rc-cascader';
 import omit from 'rc-util/lib/omit';
 import RightOutlined from '@ant-design/icons/RightOutlined';
-import RedoOutlined from '@ant-design/icons/RedoOutlined';
+import LoadingOutlined from '@ant-design/icons/LoadingOutlined';
 import LeftOutlined from '@ant-design/icons/LeftOutlined';
 import devWarning from '../_util/devWarning';
 import { ConfigContext } from '../config-provider';
@@ -19,7 +25,7 @@ import { getTransitionName } from '../_util/motion';
 // - Hover opacity style
 // - Search filter match case
 
-export type BasicDataNode = Omit<DataNode, 'label' | 'value' | 'children'>;
+export { BaseOptionType, DefaultOptionType };
 
 export type FieldNamesType = FieldNames;
 
@@ -40,7 +46,8 @@ function highlightKeyword(str: string, lowerKeyword: string, prefixCls: string |
 
     if (index % 2 === 1) {
       originWorld = (
-        <span className={`${prefixCls}-menu-item-keyword`} key="seperator">
+        // eslint-disable-next-line react/no-array-index-key
+        <span className={`${prefixCls}-menu-item-keyword`} key={`seperator-${index}`}>
           {originWorld}
         </span>
       );
@@ -74,8 +81,16 @@ const defaultSearchRender: ShowSearchType['render'] = (inputValue, path, prefixC
   return optionList;
 };
 
-export interface CascaderProps<DataNodeType>
-  extends Omit<RcCascaderProps, 'checkable' | 'options'> {
+type SingleCascaderProps = Omit<RcSingleCascaderProps, 'checkable' | 'options'> & {
+  multiple?: false;
+};
+type MultipleCascaderProps = Omit<RcMultipleCascaderProps, 'checkable' | 'options'> & {
+  multiple: true;
+};
+
+type UnionCascaderProps = SingleCascaderProps | MultipleCascaderProps;
+
+export type CascaderProps<DataNodeType> = UnionCascaderProps & {
   multiple?: boolean;
   size?: SizeType;
   bordered?: boolean;
@@ -130,6 +145,12 @@ const Cascader = React.forwardRef((props: CascaderProps<any>, ref: React.Ref<Cas
       'Cascader',
       '`popupClassName` is deprecated. Please use `dropdownClassName` instead.',
     );
+
+    devWarning(
+      !multiple || !props.displayRender,
+      'Cascader',
+      '`displayRender` not work on `multiple`. Please use `tagRender` instead.',
+    );
   }
 
   // =================== No Found ====================
@@ -181,7 +202,7 @@ const Cascader = React.forwardRef((props: CascaderProps<any>, ref: React.Ref<Cas
 
   const loadingIcon = (
     <span className={`${prefixCls}-menu-item-loading-icon`}>
-      <RedoOutlined spin />
+      <LoadingOutlined spin />
     </span>
   );
 
@@ -231,8 +252,8 @@ const Cascader = React.forwardRef((props: CascaderProps<any>, ref: React.Ref<Cas
       ref={ref}
     />
   );
-}) as (<DataNodeType extends BasicDataNode | DataNode = DataNode>(
-  props: React.PropsWithChildren<CascaderProps<DataNodeType>> & { ref?: React.Ref<CascaderRef> },
+}) as (<OptionType extends BaseOptionType | DefaultOptionType = DefaultOptionType>(
+  props: React.PropsWithChildren<CascaderProps<OptionType>> & { ref?: React.Ref<CascaderRef> },
 ) => React.ReactElement) & {
   displayName: string;
 };

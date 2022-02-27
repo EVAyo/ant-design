@@ -17,6 +17,7 @@ import {
   TableRowSelection,
   Key,
   ColumnsType,
+  ColumnType,
   GetRowKey,
   TableLocale,
   SelectionItem,
@@ -26,13 +27,13 @@ import {
 } from '../interface';
 
 // TODO: warning if use ajax!!!
+
+export const SELECTION_COLUMN = {} as const;
 export const SELECTION_ALL = 'SELECT_ALL' as const;
 export const SELECTION_INVERT = 'SELECT_INVERT' as const;
 export const SELECTION_NONE = 'SELECT_NONE' as const;
 
-function getFixedType<RecordType>(column: ColumnsType<RecordType>[number]): FixedType | undefined {
-  return column && column.fixed;
-}
+const EMPTY_LIST: React.Key[] = [];
 
 interface UseSelectionConfig<RecordType> {
   prefixCls: string;
@@ -42,7 +43,6 @@ interface UseSelectionConfig<RecordType> {
   getRecordByKey: (key: Key) => RecordType;
   expandType: ExpandType;
   childrenColumnName: string;
-  expandIconColumnIndex?: number;
   locale: TableLocale;
   getPopupContainer?: GetPopupContainer;
 }
@@ -105,13 +105,12 @@ export default function useSelection<RecordType>(
     expandType,
     childrenColumnName,
     locale: tableLocale,
-    expandIconColumnIndex,
     getPopupContainer,
   } = config;
 
   // ========================= Keys =========================
   const [mergedSelectedKeys, setMergedSelectedKeys] = useMergedState(
-    selectedRowKeys || defaultSelectedRowKeys || [],
+    selectedRowKeys || defaultSelectedRowKeys || EMPTY_LIST,
     {
       value: selectedRowKeys,
     },
@@ -218,7 +217,7 @@ export default function useSelection<RecordType>(
   // Reset if rowSelection reset
   React.useEffect(() => {
     if (!rowSelection) {
-      setMergedSelectedKeys([]);
+      setMergedSelectedKeys(EMPTY_LIST);
     }
   }, [!!rowSelection]);
 
@@ -347,11 +346,21 @@ export default function useSelection<RecordType>(
   // ======================= Columns ========================
   const transformColumns = useCallback(
     (columns: ColumnsType<RecordType>): ColumnsType<RecordType> => {
+      // >>>>>>>>>>> Skip if not exists `rowSelection`
       if (!rowSelection) {
-        return columns;
+        if (process.env.NODE_ENV !== 'production') {
+          devWarning(
+            !columns.includes(SELECTION_COLUMN),
+            'Table',
+            '`rowSelection` is not config but `SELECTION_COLUMN` exists in the `columns`.',
+          );
+        }
+
+        return columns.filter(col => col !== SELECTION_COLUMN);
       }
 
-      // Support selection
+      // >>>>>>>>>>> Support selection
+      let cloneColumns = [...columns];
       const keySet = new Set(derivedSelectedKeySet);
 
       // Record key only need check with enabled
@@ -619,8 +628,62 @@ export default function useSelection<RecordType>(
         return node;
       };
 
-      // Columns
+      // Insert selection column if not exist
+      if (!cloneColumns.includes(SELECTION_COLUMN)) {
+        // Always after expand icon
+        if (
+          cloneColumns.findIndex(
+            (col: any) => col[INTERNAL_COL_DEFINE]?.columnType === 'EXPAND_COLUMN',
+          ) === 0
+        ) {
+          const [expandColumn, ...restColumns] = cloneColumns;
+          cloneColumns = [expandColumn, SELECTION_COLUMN, ...restColumns];
+        } else {
+          // Normal insert at first column
+          cloneColumns = [SELECTION_COLUMN, ...cloneColumns];
+        }
+      }
+
+      // Deduplicate selection column
+      const selectionColumnIndex = cloneColumns.indexOf(SELECTION_COLUMN);
+      if (
+        process.env.NODE_ENV !== 'production' &&
+        cloneColumns.filter(col => col === SELECTION_COLUMN).length > 1
+      ) {
+        devWarning(false, 'Table', 'Multiple `SELECTION_COLUMN` exist in `columns`.');
+      }
+      cloneColumns = cloneColumns.filter(
+        (column, index) => column !== SELECTION_COLUMN || index === selectionColumnIndex,
+      );
+
+      // Fixed column logic
+      const prevCol: ColumnType<RecordType> & Record<string, any> =
+        cloneColumns[selectionColumnIndex - 1];
+      const nextCol: ColumnType<RecordType> & Record<string, any> =
+        cloneColumns[selectionColumnIndex + 1];
+
+      let mergedFixed: FixedType | undefined = fixed;
+
+      if (mergedFixed === undefined) {
+        if (nextCol?.fixed !== undefined) {
+          mergedFixed = nextCol.fixed;
+        } else if (prevCol?.fixed !== undefined) {
+          mergedFixed = prevCol.fixed;
+        }
+      }
+
+      if (
+        mergedFixed &&
+        prevCol &&
+        prevCol[INTERNAL_COL_DEFINE]?.columnType === 'EXPAND_COLUMN' &&
+        prevCol.fixed === undefined
+      ) {
+        prevCol.fixed = mergedFixed;
+      }
+
+      // Replace with real selection column
       const selectionColumn = {
+        fixed: mergedFixed,
         width: selectionColWidth,
         className: `${prefixCls}-selection-column`,
         title: rowSelection.columnTitle || title,
@@ -630,15 +693,7 @@ export default function useSelection<RecordType>(
         },
       };
 
-      if (expandType === 'row' && columns.length && !expandIconColumnIndex) {
-        const [expandColumn, ...restColumns] = columns;
-        const selectionFixed = fixed || getFixedType(restColumns[0]);
-        if (selectionFixed) {
-          expandColumn.fixed = selectionFixed;
-        }
-        return [expandColumn, { ...selectionColumn, fixed: selectionFixed }, ...restColumns];
-      }
-      return [{ ...selectionColumn, fixed: fixed || getFixedType(columns[0]) }, ...columns];
+      return cloneColumns.map(col => (col === SELECTION_COLUMN ? selectionColumn : col));
     },
     [
       getRowKey,

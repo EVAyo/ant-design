@@ -213,7 +213,10 @@ function List<T>({
     }
   }
 
-  const screens = useBreakpoint();
+  const needResponsive = Object.keys(grid || {}).some(key =>
+    ['xs', 'sm', 'md', 'lg', 'xl', 'xxl'].includes(key),
+  );
+  const screens = useBreakpoint(needResponsive);
   const currentBreakpoint = React.useMemo(() => {
     for (let i = 0; i < responsiveArray.length; i += 1) {
       const breakpoint: Breakpoint = responsiveArray[i];
@@ -256,9 +259,13 @@ function List<T>({
   }
 
   const paginationPosition = paginationProps.position || 'bottom';
+  const contextValue = React.useMemo(
+    () => ({ grid, itemLayout }),
+    [JSON.stringify(grid), itemLayout],
+  );
 
   return (
-    <ListContext.Provider value={{ grid, itemLayout }}>
+    <ListContext.Provider value={contextValue}>
       <div className={classString} {...rest}>
         {(paginationPosition === 'top' || paginationPosition === 'both') && paginationContent}
         {header && <div className={`${prefixCls}-header`}>{header}</div>}
